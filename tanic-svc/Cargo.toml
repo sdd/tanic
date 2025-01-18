@@ -1,0 +1,32 @@
+[package]
+name = "tanic-svc"
+version = "0.1.0"
+edition = "2021"
+authors = ["Scott Donnelly <scott@donnel.ly>"]
+description = "tanic svc task"
+keywords = []
+readme = "README.md"
+repository = "https://github.com/sdd/tanic/tanic-svc"
+documentation = "https://docs.rs/tanic"
+license = "MIT OR Apache-2.0"
+autobenches = false
+resolver = "2"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+tanic-core = { path = "../tanic-core" }
+
+http = { workspace = true }
+iceberg = "0.4"
+iceberg-catalog-rest = "0.4.0"
+
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { version = "1.12.0", features = ["v4"] }
+names = "0.14.0"

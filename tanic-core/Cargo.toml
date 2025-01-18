@@ -1,0 +1,36 @@
+[package]
+name = "tanic-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Scott Donnelly <scott@donnel.ly>"]
+description = "Tanic core: common messages"
+keywords = []
+readme = "README.md"
+repository = "https://github.com/sdd/tanic/tanic-core"
+documentation = "https://docs.rs/tanic"
+license = "MIT OR Apache-2.0"
+autobenches = false
+resolver = "2"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+
+directories = "6.0.0"
+figment = { version = "0.10.19", features = ["env", "toml"] }
+http = { workspace = true }
+http-serde = "2.1.1"
+iceberg = "0.4"
+iceberg-catalog-rest = "0.4.0"
+miette = { version = "7.4.0", features = ["fancy"] }
+names = "0.14.0"
+
+serde = "1.0.217"
+thiserror = "2.0.11"
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { version = "1.12.0", features = ["v4"] }

@@ -1,0 +1,33 @@
+[package]
+name = "tanic-tui"
+version = "0.1.0"
+edition = "2021"
+authors = ["Scott Donnelly <scott@donnel.ly>"]
+description = "Tanic terminal UI"
+keywords = []
+readme = "README.md"
+repository = "https://github.com/sdd/tanic/tanic-tui"
+documentation = "https://docs.rs/tanic-tui"
+license = "MIT OR Apache-2.0"
+autobenches = false
+resolver = "2"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+tanic-core = { path = "../tanic-core" }
+
+crossterm = { version = "0.28", features = ["event-stream"] }
+ratatui = "0.29"
+serde = { workspace = true }
+streemap = "0.1"
+terminal_size = "0.4"
+tokio = { workspace = true }
+tracing = { workspace = true }
+futures = "0.3.31"
+tui-logger = "0.14.1"
+treemap = "0.3.2"
