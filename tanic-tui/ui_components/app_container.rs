@@ -1,4 +1,3 @@
-use std::sync::{Arc, RwLock};
 use crate::component::Component;
 use crate::ui_components::{
     namespace_list_view::NamespaceListView, splash_screen::SplashScreen,
@@ -9,9 +8,10 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::{Color, Style, Widget};
 use ratatui::widgets::Block;
+use std::sync::{Arc, RwLock};
+use tanic_svc::state::TanicUiState;
 use tanic_svc::{TanicAction, TanicAppState};
 use tui_logger::{LevelFilter, TuiLoggerLevelOutput, TuiLoggerWidget, TuiWidgetState};
-use tanic_svc::state::TanicUiState;
 
 pub(crate) struct AppContainer {
     state: Arc<RwLock<TanicAppState>>,
@@ -52,14 +52,15 @@ impl AppContainer {
                     }
                     _ => None,
                 }
-            },
+            }
         }
     }
 }
 
 impl Widget for &AppContainer {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let [top, bottom] = Layout::vertical([Constraint::Fill(1), Constraint::Max(6)]).areas(area);
+        let [top, bottom] =
+            Layout::vertical([Constraint::Fill(1), Constraint::Max(10)]).areas(area);
 
         let filter_state = TuiWidgetState::new()
             .set_default_display_level(LevelFilter::Info)
@@ -82,8 +83,7 @@ impl Widget for &AppContainer {
             TanicUiState::SplashScreen => self.splash_screen.render(top, buf),
             TanicUiState::ViewingNamespacesList(_) => (&self.namespace_list_view).render(top, buf),
             TanicUiState::ViewingTablesList(_) => (&self.table_list_view).render(top, buf),
-            TanicUiState::Exiting => {}
-            // _ => {}
+            TanicUiState::Exiting => {} // _ => {}
         }
     }
 }

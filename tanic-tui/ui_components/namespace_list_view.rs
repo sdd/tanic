@@ -1,14 +1,14 @@
-use std::sync::{Arc, RwLock};
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::Block;
+use std::sync::{Arc, RwLock};
 
 use crate::component::Component;
 use crate::ui_components::namespace_list_item::NamespaceListItem;
 use crate::ui_components::treemap_layout::TreeMapLayout;
-use tanic_svc::{TanicAction, TanicAppState};
 use tanic_svc::state::{TanicIcebergState, TanicUiState};
+use tanic_svc::{TanicAction, TanicAppState};
 
 pub(crate) struct NamespaceListView {
     state: Arc<RwLock<TanicAppState>>,
@@ -43,7 +43,7 @@ impl Component for &NamespaceListView {
             .iter()
             .map(|item| {
                 let tables = &item.ns.tables;
-                let table_count = tables.as_ref().map(|t|t.len()).unwrap_or(0);
+                let table_count = tables.as_ref().map(|t| t.len()).unwrap_or(0);
 
                 (item, table_count)
             })

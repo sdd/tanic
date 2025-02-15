@@ -33,3 +33,4 @@ names = "0.14.0"
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 parquet = "54.0.0"
 indexmap = "2.7.1"
+futures = "0.3.31"

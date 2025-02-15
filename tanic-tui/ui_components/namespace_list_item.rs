@@ -28,11 +28,20 @@ impl Component for &NamespaceListItem<'_> {
 
         let name = self.ns.name.clone();
         let tables = &self.ns.tables;
-        let table_count = tables.as_ref().map(|t|t.len()).unwrap_or(0);
+        let table_count = tables.as_ref().map(|t| t.len()).unwrap_or(0);
         let plural_suffix = if table_count == 1 { "" } else { "s" };
+
+        let row_count = self.ns.row_count.unwrap_or(0);
+        let row_plural_suffix = if row_count == 1 { "" } else { "s" };
+
         let name = format!(
-            "{} {} ({} table{})",
-            NERD_FONT_ICON_TABLE_FOLDER, name, table_count, plural_suffix
+            "{} {} ({} table{}, {} row{})",
+            NERD_FONT_ICON_TABLE_FOLDER,
+            name,
+            table_count,
+            plural_suffix,
+            row_count,
+            row_plural_suffix
         );
 
         let para_rect = Rect::new(

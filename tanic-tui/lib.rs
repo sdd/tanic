@@ -1,15 +1,15 @@
-use std::sync::Arc;
 use crossterm::event::{Event, EventStream};
 use ratatui::Frame;
-use tokio::sync::mpsc::UnboundedSender as MpscSender;
+use std::sync::Arc;
 use std::sync::RwLock;
+use tokio::sync::mpsc::UnboundedSender as MpscSender;
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio_stream::{wrappers::WatchStream, StreamExt};
 
 use crate::ui_components::app_container::AppContainer;
 use tanic_core::{Result, TanicError};
-use tanic_svc::{TanicAction, TanicAppState};
 use tanic_svc::state::TanicUiState;
+use tanic_svc::{TanicAction, TanicAppState};
 
 mod component;
 mod ui_components;
@@ -23,7 +23,11 @@ impl TanicTui {
         Self { action_tx }
     }
 
-    pub async fn event_loop(self, state_rx: WatchReceiver<()>, state: Arc<RwLock<TanicAppState>>) -> Result<()> {
+    pub async fn event_loop(
+        self,
+        state_rx: WatchReceiver<()>,
+        state: Arc<RwLock<TanicAppState>>,
+    ) -> Result<()> {
         let mut terminal = ratatui::init();
         let mut term_event_stream = EventStream::new();
         let mut state_stream = WatchStream::new(state_rx);

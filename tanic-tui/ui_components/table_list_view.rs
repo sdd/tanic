@@ -1,14 +1,16 @@
-use std::sync::{Arc, RwLock};
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::Block;
+use std::sync::{Arc, RwLock};
 
 use crate::component::Component;
 use crate::ui_components::table_list_item::TableListItem;
 use crate::ui_components::treemap_layout::TreeMapLayout;
+use tanic_svc::state::{
+    RetrievedIcebergMetadata, TanicIcebergState, TanicUiState, ViewingTablesListState,
+};
 use tanic_svc::{TanicAction, TanicAppState};
-use tanic_svc::state::{RetrievedIcebergMetadata, TanicIcebergState, TanicUiState, ViewingTablesListState};
 
 pub(crate) struct TableListView {
     state: Arc<RwLock<TanicAppState>>,
@@ -45,9 +47,12 @@ impl Component for &TableListView {
         let block = Block::bordered()
             .title(format!(
                 " Tanic //// {} Namespace ",
-                view_state.namespaces.selected_idx.and_then(
-                    |idx| iceberg_state.namespaces.get_index(idx)
-                ).map(|(k, _)|k.to_string()).unwrap_or("???".to_string())
+                view_state
+                    .namespaces
+                    .selected_idx
+                    .and_then(|idx| iceberg_state.namespaces.get_index(idx))
+                    .map(|(k, _)| k.to_string())
+                    .unwrap_or("???".to_string())
             ))
             .border_set(border::PLAIN);
         let block_inner_area = block.inner(area);
@@ -67,12 +72,16 @@ impl Component for &TableListView {
 }
 
 impl TableListView {
-    fn get_items<'a>(iceberg_state: &'a RetrievedIcebergMetadata, view_state: &'a ViewingTablesListState) -> Vec<TableListItem<'a>> {
-        let Some(ref selected_namespace) = view_state.selected_idx else {
+    fn get_items<'a>(
+        iceberg_state: &'a RetrievedIcebergMetadata,
+        view_state: &'a ViewingTablesListState,
+    ) -> Vec<TableListItem<'a>> {
+        let Some(ref selected_namespace) = view_state.namespaces.selected_idx else {
             return vec![];
         };
 
-        let Some((_, namespace_desc)) = iceberg_state.namespaces.get_index(*selected_namespace) else {
+        let Some((_, namespace_desc)) = iceberg_state.namespaces.get_index(*selected_namespace)
+        else {
             return vec![];
         };
 
@@ -83,9 +92,7 @@ impl TableListView {
         let items = tables
             .iter()
             .enumerate()
-            .map(|(idx, (_, ns))| {
-                TableListItem::new(ns, Some(idx) == view_state.selected_idx)
-            })
+            .map(|(idx, (_, ns))| TableListItem::new(ns, Some(idx) == view_state.selected_idx))
             .collect::<Vec<_>>();
 
         items

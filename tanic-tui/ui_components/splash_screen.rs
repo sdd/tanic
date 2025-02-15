@@ -1,7 +1,7 @@
-use std::sync::{Arc, RwLock};
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::{Block, Paragraph};
+use std::sync::{Arc, RwLock};
 use tanic_svc::TanicAppState;
 
 pub(crate) struct SplashScreen {

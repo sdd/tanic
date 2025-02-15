@@ -8,8 +8,8 @@ use tokio::sync::watch::{Receiver as WatchReceiver, Sender as WatchSender};
 pub mod iceberg_context;
 pub mod state;
 
-pub use state::{TanicAction, TanicAppState};
 use crate::state::TanicIcebergState;
+pub use state::{TanicAction, TanicAppState};
 
 pub struct AppStateManager {
     action_rx: MpscReceiver<TanicAction>,
@@ -22,9 +22,7 @@ pub struct AppStateManager {
 }
 
 impl AppStateManager {
-    pub fn new(
-        _config: TanicConfig,
-    ) -> (Self, MpscSender<TanicAction>, WatchReceiver<()>) {
+    pub fn new(_config: TanicConfig) -> (Self, MpscSender<TanicAction>, WatchReceiver<()>) {
         let state = Arc::new(RwLock::new(TanicAppState::default()));
 
         let (action_tx, action_rx) = tokio::sync::mpsc::unbounded_channel();

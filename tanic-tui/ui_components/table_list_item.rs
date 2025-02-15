@@ -31,13 +31,10 @@ impl Component for &TableListItem<'_> {
         let row_count_str = match self.table.row_count() {
             None => "".to_string(),
             Some(1) => " (1 row)".to_string(),
-            Some(n) => format!(" ({n} rows)")
+            Some(n) => format!(" ({n} rows)"),
         };
 
-        let name = format!(
-            "{} {}{}",
-            NERD_FONT_ICON_TABLE, name, row_count_str
-        );
+        let name = format!("{} {}{}", NERD_FONT_ICON_TABLE, name, row_count_str);
 
         let para_rect = Rect::new(
             block_inner.x,
