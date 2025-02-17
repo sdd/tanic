@@ -37,6 +37,12 @@ impl ConnectionDetails {
     }
 }
 
+impl PartialEq for ConnectionDetails {
+    fn eq(&self, other: &Self) -> bool {
+        self.uri == other.uri
+    }
+}
+
 /// persistable user config.
 ///
 /// Loaded in at application startup from $CONFIG/tanic/tanic.toml

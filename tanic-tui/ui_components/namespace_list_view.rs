@@ -1,24 +1,27 @@
+use crate::component::Component;
+use crate::ui_components::namespace_list_item::NamespaceListItem;
+use crate::ui_components::treemap_layout::TreeMapLayout;
 use crossterm::event::{KeyCode, KeyEvent};
+use num_format::SystemLocale;
 use ratatui::prelude::*;
-use ratatui::widgets::canvas::{Canvas, Rectangle};
+use ratatui::symbols::border;
 use ratatui::widgets::Block;
-use treemap::{MapItem, Mappable, Rect as TreeMapRect, TreemapLayout};
-
+use std::sync::{Arc, RwLock, TryLockError};
+use tanic_svc::state::{TanicIcebergState, TanicUiState};
 use tanic_svc::{TanicAction, TanicAppState};
 
-// find more at https://www.nerdfonts.com/cheat-sheet
-const NERD_FONT_ICON_TABLE_FOLDER: &str = "\u{f12e4}"; // 󱋤
-
-pub(crate) struct NamespaceListView<'a> {
-    state: &'a TanicAppState,
+pub(crate) struct NamespaceListView {
+    state: Arc<RwLock<TanicAppState>>,
 }
 
-impl<'a> NamespaceListView<'a> {
-    pub(crate) fn new(state: &'a TanicAppState) -> Self {
+impl NamespaceListView {
+    pub(crate) fn new(state: Arc<RwLock<TanicAppState>>) -> Self {
         Self { state }
     }
+}
 
-    pub(crate) fn handle_key_event(&self, key_event: KeyEvent) -> Option<TanicAction> {
+impl Component for &NamespaceListView {
+    fn handle_key_event(&mut self, key_event: KeyEvent) -> Option<TanicAction> {
         match key_event.code {
             KeyCode::Left => Some(TanicAction::FocusPrevNamespace),
             KeyCode::Right => Some(TanicAction::FocusNextNamespace),
@@ -26,79 +29,68 @@ impl<'a> NamespaceListView<'a> {
             _ => None,
         }
     }
+
+    fn render(&self, area: Rect, buf: &mut Buffer, locale: &SystemLocale) {
+        let block = Block::bordered()
+            .title(" Tanic //// Root Namespaces")
+            .border_set(border::PLAIN);
+        let block_inner_area = block.inner(area);
+
+        {
+            tracing::debug!("render self.state.read");
+            let state = match self.state.try_read() {
+                Ok(state) => state,
+                Err(TryLockError::Poisoned(err)) => {
+                    tracing::error!(?err, %err, "poison ☠");
+                    panic!();
+                }
+                Err(TryLockError::WouldBlock) => {
+                    tracing::error!("WouldBlock");
+
+                    // just skip this render if we can't get a read lock
+                    return;
+                }
+            };
+
+            let items = self.get_items(&state);
+
+            let children: Vec<(&NamespaceListItem, usize)> = items
+                .iter()
+                .map(|item| {
+                    let tables = &item.ns.tables;
+                    let table_count = tables.as_ref().map(|t| t.len()).unwrap_or(0);
+                    (item, table_count)
+                })
+                .collect::<Vec<_>>();
+
+            let layout = TreeMapLayout::new(children);
+
+            block.render(area, buf);
+            (&layout).render(block_inner_area, buf, locale);
+        }
+        tracing::debug!("render self.state.read done");
+    }
 }
 
-impl Widget for &NamespaceListView<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let layout = TreemapLayout::new();
-        let bounds = TreeMapRect::from_points(
-            area.x as f64,
-            area.y as f64,
-            area.width as f64,
-            area.height as f64,
-        );
-
-        let TanicAppState::ViewingNamespacesList(view_state) = self.state else {
-            panic!();
+impl NamespaceListView {
+    fn get_items<'a>(&self, state: &'a TanicAppState) -> Vec<NamespaceListItem<'a>> {
+        let TanicIcebergState::Connected(ref iceberg_state) = state.iceberg else {
+            return vec![];
         };
 
-        let mut items: Vec<Box<dyn Mappable>> = view_state
+        let TanicUiState::ViewingNamespacesList(ref view_state) = state.ui else {
+            return vec![];
+        };
+
+        let items = iceberg_state
             .namespaces
             .iter()
-            .map(|namespace| {
-                let res: Box<dyn Mappable> =
-                    Box::new(MapItem::with_size(namespace.table_count.max(1) as f64));
-                res
+            .enumerate()
+            .map(|(idx, (_, ns))| {
+                NamespaceListItem::new(ns, view_state.selected_idx.unwrap_or(usize::MAX) == idx)
             })
             .collect::<Vec<_>>();
 
-        layout.layout_items(&mut items, bounds);
-
-        let selected_idx = view_state.selected_idx;
-
-        let canvas = Canvas::default()
-            .block(Block::bordered().title(" Tanic //// Root Namespaces"))
-            .x_bounds([area.x as f64, (area.x + area.width) as f64])
-            .y_bounds([area.y as f64, (area.y + area.height) as f64])
-            .paint(|ctx| {
-                for (idx, item) in items.iter().enumerate() {
-                    let item_bounds = item.bounds();
-
-                    let rect = Rectangle {
-                        x: item_bounds.x,
-                        y: item_bounds.y,
-                        width: item_bounds.w,
-                        height: item_bounds.h,
-                        color: Color::White,
-                    };
-
-                    ctx.draw(&rect);
-
-                    let style = if Some(idx) == selected_idx {
-                        Style::new().black().bold().on_white()
-                    } else {
-                        Style::new().white()
-                    };
-
-                    let ns = &view_state.namespaces[idx];
-                    let name = ns.name.clone();
-                    let plural_suffix = if ns.table_count == 1 { "" } else { "s" };
-                    let name = format!(
-                        "{} {} ({} table{})",
-                        NERD_FONT_ICON_TABLE_FOLDER, name, ns.table_count, plural_suffix
-                    );
-
-                    let name_len = name.len();
-                    let text = Line::styled(name, style);
-
-                    ctx.print(
-                        item_bounds.x + (item_bounds.w * 0.5) - (name_len as f64 * 0.5),
-                        item_bounds.y + (item_bounds.h * 0.5),
-                        text,
-                    );
-                }
-            });
-
-        canvas.render(area, buf);
+        items
     }
 }

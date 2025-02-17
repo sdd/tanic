@@ -11,3 +11,14 @@ pub struct TableDeets {
     pub name: String,
     pub row_count: usize,
 }
+
+impl NamespaceDeets {
+    pub fn from_parts(parts: Vec<String>) -> Self {
+        let name = parts.clone().join(".");
+        Self {
+            parts,
+            name,
+            table_count: 0,
+        }
+    }
+}

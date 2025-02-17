@@ -6,4 +6,7 @@ use http::Uri;
 pub struct Args {
     /// URI of an Iceberg Catalog to connect to
     pub catalogue_uri: Option<Uri>,
+
+    #[clap(long, default_value_t = false)]
+    pub no_ui: bool,
 }

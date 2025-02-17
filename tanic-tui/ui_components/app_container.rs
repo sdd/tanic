@@ -1,3 +1,4 @@
+use crate::component::Component;
 use crate::ui_components::{
     namespace_list_view::NamespaceListView, splash_screen::SplashScreen,
     table_list_view::TableListView,
@@ -7,24 +8,26 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::{Color, Style, Widget};
 use ratatui::widgets::Block;
+use std::sync::{Arc, RwLock, TryLockError};
+use tanic_svc::state::TanicUiState;
 use tanic_svc::{TanicAction, TanicAppState};
 use tui_logger::{LevelFilter, TuiLoggerLevelOutput, TuiLoggerWidget, TuiWidgetState};
 
-pub(crate) struct AppContainer<'a> {
-    state: &'a TanicAppState,
-    namespace_list_view: NamespaceListView<'a>,
-    table_list_view: TableListView<'a>,
-    splash_screen: SplashScreen<'a>,
+pub(crate) struct AppContainer {
+    state: Arc<RwLock<TanicAppState>>,
+    namespace_list_view: NamespaceListView,
+    table_list_view: TableListView,
+    splash_screen: SplashScreen,
 }
 
-impl<'a> AppContainer<'a> {
-    pub(crate) fn new(state: &'a TanicAppState) -> Self {
+impl AppContainer {
+    pub(crate) fn new(state: Arc<RwLock<TanicAppState>>) -> Self {
         Self {
-            state,
+            state: state.clone(),
 
-            namespace_list_view: NamespaceListView::new(state),
-            table_list_view: TableListView::new(state),
-            splash_screen: SplashScreen::new(state),
+            namespace_list_view: NamespaceListView::new(state.clone()),
+            table_list_view: TableListView::new(state.clone()),
+            splash_screen: SplashScreen::new(state.clone()),
         }
     }
 
@@ -37,20 +40,33 @@ impl<'a> AppContainer<'a> {
                 // User pressed Q. Dispatch an exit action
                 Some(TanicAction::Exit)
             }
-            key_event => match &self.state {
-                TanicAppState::ViewingNamespacesList(_) => {
-                    self.namespace_list_view.handle_key_event(key_event)
+
+            key_event => {
+                tracing::debug!("key_event self.state.read");
+                let state = match self.state.read() {
+                    Ok(state) => state,
+                    Err(err) => {
+                        tracing::error!(?err, %err, "poison ☠");
+                        panic!();
+                    }
+                };
+                tracing::debug!("key_event self.state.read done");
+
+                match state.ui {
+                    TanicUiState::ViewingNamespacesList(_) => {
+                        (&self.namespace_list_view).handle_key_event(key_event)
+                    }
+                    TanicUiState::ViewingTablesList(_) => {
+                        (&self.table_list_view).handle_key_event(key_event)
+                    }
+                    _ => None,
                 }
-                TanicAppState::ViewingTablesList(_) => {
-                    self.table_list_view.handle_key_event(key_event)
-                }
-                _ => None,
-            },
+            }
         }
     }
 }
 
-impl Widget for &AppContainer<'_> {
+impl Widget for &AppContainer {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let [top, bottom] = Layout::vertical([Constraint::Fill(1), Constraint::Max(6)]).areas(area);
 
@@ -70,12 +86,33 @@ impl Widget for &AppContainer<'_> {
             .state(&filter_state)
             .render(bottom, buf);
 
-        match &self.state {
-            TanicAppState::Initializing => self.splash_screen.render(top, buf),
-            TanicAppState::ViewingNamespacesList(_) => self.namespace_list_view.render(top, buf),
-            TanicAppState::ViewingTablesList(_) => self.table_list_view.render(top, buf),
-            TanicAppState::Exiting => {}
-            _ => {}
+        {
+            tracing::debug!("render self.state.read");
+            let state = match self.state.try_read() {
+                Ok(state) => state,
+                Err(TryLockError::Poisoned(err)) => {
+                    tracing::error!(?err, %err, "poison ☠");
+                    panic!();
+                }
+                Err(TryLockError::WouldBlock) => {
+                    tracing::error!("WouldBlock");
+
+                    // just skip this render if we can't get a read lock
+                    return;
+                }
+            };
+
+            match state.ui {
+                TanicUiState::SplashScreen => self.splash_screen.render(top, buf),
+                TanicUiState::ViewingNamespacesList(_) => {
+                    (&self.namespace_list_view).render(top, buf, &state.locale)
+                }
+                TanicUiState::ViewingTablesList(_) => {
+                    (&self.table_list_view).render(top, buf, &state.locale)
+                }
+                TanicUiState::Exiting => {} // _ => {}
+            }
         }
+        tracing::debug!("render self.state.read done");
     }
 }

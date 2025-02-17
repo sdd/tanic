@@ -1,3 +1,5 @@
+use std::sync::Arc;
+use std::sync::RwLock;
 use tanic_core::TanicConfig;
 use tanic_core::{Result, TanicError};
 use tokio::sync::mpsc::{UnboundedReceiver as MpscReceiver, UnboundedSender as MpscSender};
@@ -6,6 +8,7 @@ use tokio::sync::watch::{Receiver as WatchReceiver, Sender as WatchSender};
 pub mod iceberg_context;
 pub mod state;
 
+use crate::state::TanicIcebergState;
 pub use state::{TanicAction, TanicAppState};
 
 pub struct AppStateManager {
@@ -13,19 +16,17 @@ pub struct AppStateManager {
 
     #[allow(unused)]
     action_tx: MpscSender<TanicAction>,
-    state_tx: WatchSender<TanicAppState>,
+    state_tx: WatchSender<()>,
 
-    state: TanicAppState,
+    state: Arc<RwLock<TanicAppState>>,
 }
 
 impl AppStateManager {
-    pub fn new(
-        _config: TanicConfig,
-    ) -> (Self, MpscSender<TanicAction>, WatchReceiver<TanicAppState>) {
-        let state = TanicAppState::default();
+    pub fn new(_config: TanicConfig) -> (Self, MpscSender<TanicAction>, WatchReceiver<()>) {
+        let state = Arc::new(RwLock::new(TanicAppState::default()));
 
         let (action_tx, action_rx) = tokio::sync::mpsc::unbounded_channel();
-        let (state_tx, state_rx) = tokio::sync::watch::channel(state.clone());
+        let (state_tx, state_rx) = tokio::sync::watch::channel(());
 
         (
             Self {
@@ -39,25 +40,35 @@ impl AppStateManager {
         )
     }
 
+    pub fn get_state(&self) -> Arc<RwLock<TanicAppState>> {
+        self.state.clone()
+    }
+
     pub async fn event_loop(self) -> Result<()> {
         let Self {
-            mut state,
+            state,
             state_tx,
             mut action_rx,
             ..
         } = self;
 
-        while !matches!(state, TanicAppState::Exiting) {
+        while !matches!(state.read().unwrap().iceberg, TanicIcebergState::Exiting) {
+            tracing::debug!("await action_rx.recv()");
             let Some(action) = action_rx.recv().await else {
                 break;
             };
+            tracing::debug!("await action_rx.recv() complete");
             tracing::info!(?action, "AppState received an action");
 
-            let next_state = state.reduce(action);
+            {
+                tracing::debug!("state.write()");
+                let mut mut_state = state.write().unwrap();
+                *mut_state = mut_state.clone().update(action);
+            }
+            tracing::debug!("state.write() done");
 
-            state = next_state;
             state_tx
-                .send(state.clone())
+                .send(())
                 .map_err(|err| TanicError::UnexpectedError(err.to_string()))?;
         }
 

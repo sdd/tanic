@@ -24,6 +24,7 @@ http-serde = "2"
 iceberg = "0.4"
 iceberg-catalog-rest = "0.4"
 miette = { version = "7", features = ["fancy"] }
+num-format = { version = "0.4", features = ["with-system-locale"] }
 ratatui = "0.29"
 serde = "1"
 streemap = "0.1"
@@ -31,4 +32,4 @@ terminal_size = "0.4"
 thiserror = "2"
 tokio = "1"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

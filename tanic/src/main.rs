@@ -14,23 +14,24 @@ mod logging;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    logging::init_tui_logger();
-
     let args = Args::try_parse().into_diagnostic()?;
+
+    logging::init_tui_logger(args.no_ui);
+
     let config = TanicConfig::load().into_diagnostic()?;
     tracing::info!(?config, "loaded config");
-    // let config = Arc::new(RwLock::new(config));
 
     let (app_state, action_tx, state_rx) = AppStateManager::new(config);
-    let tanic_tui = TanicTui::new(action_tx.clone());
-    let iceberg_ctx_mgr = IcebergContextManager::new(action_tx.clone());
 
+    let iceberg_task = tokio::spawn({
+        let state_rx = state_rx.clone();
+        let app_state = app_state.get_state();
+        let iceberg_ctx_mgr = IcebergContextManager::new(action_tx.clone(), app_state);
+        async move { iceberg_ctx_mgr.event_loop(state_rx).await }
+    });
+
+    let ui_app_state = app_state.get_state();
     let svc_task = tokio::spawn(async move { app_state.event_loop().await });
-    let ui_state_rx = state_rx.clone();
-    let ui_task = tokio::spawn(async move { tanic_tui.event_loop(ui_state_rx).await });
-    let iceberg_task_state_rx = state_rx.clone();
-    let iceberg_task =
-        tokio::spawn(async move { iceberg_ctx_mgr.event_loop(iceberg_task_state_rx).await });
 
     if let Some(ref uri) = args.catalogue_uri {
         let connection = ConnectionDetails::new_anon(uri.clone());
@@ -39,9 +40,23 @@ async fn main() -> Result<()> {
         action_tx.send(message).into_diagnostic()?;
     }
 
-    tokio::select! {
-        _ = ui_task => Ok(()),
-        _ = svc_task => Ok(()),
-        _ = iceberg_task => Ok(()),
+    if args.no_ui {
+        tokio::select! {
+            _ = svc_task => Ok(()),
+            _ = iceberg_task => Ok(()),
+        }
+    } else {
+        tokio::task::spawn_blocking(move || {
+            tokio::spawn(async move {
+                let tanic_tui = TanicTui::new(action_tx.clone());
+                let state_rx = state_rx.clone();
+                tanic_tui.event_loop(state_rx, ui_app_state).await
+            })
+        });
+
+        tokio::select! {
+            _ = svc_task => Ok(()),
+            _ = iceberg_task => Ok(()),
+        }
     }
 }

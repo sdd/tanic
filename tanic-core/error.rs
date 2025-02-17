@@ -27,3 +27,9 @@ pub enum TanicError {
     #[error("Unexpected")]
     UnexpectedError(String),
 }
+
+impl TanicError {
+    pub fn unexpected<T: ToString>(msg: T) -> Self {
+        Self::UnexpectedError(msg.to_string())
+    }
+}
