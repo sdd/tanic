@@ -1,12 +1,12 @@
+use crate::component::Component;
+use crate::ui_components::table_list_item::TableListItem;
+use crate::ui_components::treemap_layout::TreeMapLayout;
 use crossterm::event::{KeyCode, KeyEvent};
+use num_format::SystemLocale;
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::Block;
 use std::sync::{Arc, RwLock};
-
-use crate::component::Component;
-use crate::ui_components::table_list_item::TableListItem;
-use crate::ui_components::treemap_layout::TreeMapLayout;
 use tanic_svc::state::{
     RetrievedIcebergMetadata, TanicIcebergState, TanicUiState, ViewingTablesListState,
 };
@@ -33,7 +33,7 @@ impl Component for &TableListView {
         }
     }
 
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+    fn render(&self, area: Rect, buf: &mut Buffer, locale: &SystemLocale) {
         tracing::debug!("self.state.read");
         let state = self.state.read().unwrap();
         tracing::debug!("self.state.read done");
@@ -69,7 +69,7 @@ impl Component for &TableListView {
         let layout = TreeMapLayout::new(children);
 
         block.render(area, buf);
-        (&layout).render(block_inner_area, buf);
+        (&layout).render(block_inner_area, buf, locale);
     }
 }
 

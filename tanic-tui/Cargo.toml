@@ -33,3 +33,4 @@ futures = "0.3.31"
 tui-logger = "0.14.1"
 treemap = "0.3.2"
 tokio-stream = { version = "0.1.17", features = ["sync"] }
+num-format = { workspace = true, features = ["with-system-locale"] }

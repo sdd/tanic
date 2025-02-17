@@ -1,12 +1,12 @@
+use crate::component::Component;
+use crate::ui_components::namespace_list_item::NamespaceListItem;
+use crate::ui_components::treemap_layout::TreeMapLayout;
 use crossterm::event::{KeyCode, KeyEvent};
+use num_format::SystemLocale;
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::Block;
 use std::sync::{Arc, RwLock, TryLockError};
-
-use crate::component::Component;
-use crate::ui_components::namespace_list_item::NamespaceListItem;
-use crate::ui_components::treemap_layout::TreeMapLayout;
 use tanic_svc::state::{TanicIcebergState, TanicUiState};
 use tanic_svc::{TanicAction, TanicAppState};
 
@@ -30,7 +30,7 @@ impl Component for &NamespaceListView {
         }
     }
 
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+    fn render(&self, area: Rect, buf: &mut Buffer, locale: &SystemLocale) {
         let block = Block::bordered()
             .title(" Tanic //// Root Namespaces")
             .border_set(border::PLAIN);
@@ -59,7 +59,6 @@ impl Component for &NamespaceListView {
                 .map(|item| {
                     let tables = &item.ns.tables;
                     let table_count = tables.as_ref().map(|t| t.len()).unwrap_or(0);
-
                     (item, table_count)
                 })
                 .collect::<Vec<_>>();
@@ -67,7 +66,7 @@ impl Component for &NamespaceListView {
             let layout = TreeMapLayout::new(children);
 
             block.render(area, buf);
-            (&layout).render(block_inner_area, buf);
+            (&layout).render(block_inner_area, buf, locale);
         }
         tracing::debug!("render self.state.read done");
     }

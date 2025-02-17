@@ -64,8 +64,9 @@ impl IcebergContextManager {
 
     pub async fn event_loop(&self, state_rx: Receiver<()>) -> Result<()> {
         let mut state_stream = WatchStream::new(state_rx);
-
         let (job_queue_tx, job_queue_rx) = channel(10);
+
+        let mut current_conn_details: Option<ConnectionDetails> = None;
 
         tokio::spawn({
             let action_tx = self.action_tx.clone();
@@ -77,9 +78,9 @@ impl IcebergContextManager {
             }
         });
 
-        tracing::debug!("await state_stream.next()");
+        tracing::debug!("await state_stream.next() 1");
         let mut next_item = state_stream.next().await;
-        tracing::debug!("await state_stream.next() complete");
+        tracing::debug!("await state_stream.next() 1 complete");
         while next_item.is_some() {
             let new_conn_details = {
                 tracing::debug!("self.state_ref.read()");
@@ -98,20 +99,24 @@ impl IcebergContextManager {
             tracing::debug!("self.state_ref.read() done");
 
             if let Some(new_conn_details) = new_conn_details {
-                tracing::debug!("await self.connect_to()");
-                self.connect_to(&new_conn_details, job_queue_tx.clone())
-                    .await?;
-                tracing::debug!("await self.connect_to() done");
+                if Some(new_conn_details.clone()) != current_conn_details {
+                    current_conn_details = Some(new_conn_details.clone());
 
-                // begin crawl
-                tracing::debug!("await job_queue_tx.send()");
-                let _ = job_queue_tx.send(IcebergTask::Namespaces).await;
-                tracing::debug!("await job_queue_tx.send() done");
+                    tracing::debug!("await self.connect_to()");
+                    self.connect_to(&new_conn_details, job_queue_tx.clone())
+                        .await?;
+                    tracing::debug!("await self.connect_to() done");
+
+                    // begin crawl
+                    tracing::debug!("await job_queue_tx.send()");
+                    let _ = job_queue_tx.send(IcebergTask::Namespaces).await;
+                    tracing::debug!("await job_queue_tx.send() done");
+                }
             }
 
-            tracing::debug!("await state_stream.next()");
+            tracing::debug!("await state_stream.next() 2");
             next_item = state_stream.next().await;
-            tracing::debug!("await state_stream.next() complete");
+            tracing::debug!("await state_stream.next() 2 complete");
         }
 
         Ok(())
@@ -197,7 +202,7 @@ impl IcebergContextManager {
             let _ = job_queue_tx
                 .send(IcebergTask::TablesForNamespace(namespace.clone()))
                 .await;
-            tracing::debug!("job_queue_tx.send await sone");
+            tracing::debug!("job_queue_tx.send await done");
         }
 
         Ok(())

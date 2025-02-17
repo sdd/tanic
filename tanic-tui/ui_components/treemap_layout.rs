@@ -1,3 +1,4 @@
+use num_format::SystemLocale;
 use ratatui::prelude::*;
 use treemap::{MapItem, Mappable, Rect as TreeMapRect, TreemapLayout};
 
@@ -14,7 +15,7 @@ impl<T: Component> TreeMapLayout<T> {
 }
 
 impl<T: Component> Component for &TreeMapLayout<T> {
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+    fn render(&self, area: Rect, buf: &mut Buffer, locale: &SystemLocale) {
         let layout = TreemapLayout::new();
         let bounds = TreeMapRect::from_points(
             area.x as f64,
@@ -44,7 +45,7 @@ impl<T: Component> Component for &TreeMapLayout<T> {
                 height: region_bounds.h as u16,
             };
 
-            child.render(rect, buf);
+            child.render(rect, buf, locale);
         }
     }
 }

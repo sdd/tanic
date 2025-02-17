@@ -1,6 +1,7 @@
 use iceberg::spec::{DataFile, Manifest, ManifestList, Snapshot};
 use iceberg::table::Table;
 use indexmap::IndexMap;
+use num_format::SystemLocale;
 use parquet::file::metadata::ParquetMetaData;
 use std::collections::HashMap;
 use tanic_core::config::ConnectionDetails;
@@ -75,10 +76,11 @@ pub enum TanicAction {
     SelectDataFile,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct TanicAppState {
     pub iceberg: TanicIcebergState,
     pub ui: TanicUiState,
+    pub locale: SystemLocale,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -132,6 +134,7 @@ pub enum TanicUiState {
     SplashScreen,
     ViewingNamespacesList(ViewingNamespacesListState),
     ViewingTablesList(ViewingTablesListState),
+    ViewingTable(ViewingTableState),
     Exiting,
 }
 
@@ -144,6 +147,23 @@ pub struct ViewingNamespacesListState {
 pub struct ViewingTablesListState {
     pub namespaces: ViewingNamespacesListState,
     pub selected_idx: Option<usize>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ViewingTableState {
+    pub tables: ViewingTablesListState,
+}
+
+impl Default for TanicAppState {
+    fn default() -> Self {
+        let locale = SystemLocale::default().unwrap();
+
+        Self {
+            iceberg: Default::default(),
+            ui: Default::default(),
+            locale,
+        }
+    }
 }
 
 impl TanicAppState {
@@ -501,7 +521,7 @@ impl TanicAppState {
             }
 
             (TanicAction::FocusPrevNamespace, prev_state) => {
-                let TanicAppState { iceberg, ui } = prev_state;
+                let TanicAppState { iceberg, ui, .. } = prev_state;
 
                 let TanicUiState::ViewingNamespacesList(ref mut viewing_namespaces_list_state) = ui
                 else {
@@ -525,7 +545,7 @@ impl TanicAppState {
             }
 
             (TanicAction::FocusNextNamespace, prev_state) => {
-                let TanicAppState { iceberg, ui } = prev_state;
+                let TanicAppState { iceberg, ui, .. } = prev_state;
 
                 let TanicUiState::ViewingNamespacesList(ref mut viewing_namespaces_list_state) = ui
                 else {
@@ -549,20 +569,43 @@ impl TanicAppState {
             }
 
             (TanicAction::SelectNamespace, prev_state) => {
-                let TanicAppState { ui, .. } = prev_state;
+                let TanicAppState { iceberg, ui, .. } = prev_state;
 
                 let TanicUiState::ViewingNamespacesList(namespaces) = ui else {
                     panic!();
                 };
 
+                let TanicIcebergState::Connected(ref iceberg_state) = iceberg else {
+                    panic!();
+                };
+
+                let has_some_tables = if let Some(selected_namespace_idx) = namespaces.selected_idx
+                {
+                    if let Some((_, ns)) =
+                        iceberg_state.namespaces.get_index(selected_namespace_idx)
+                    {
+                        if let Some(ref tables) = ns.tables {
+                            !tables.is_empty()
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+
+                let selected_idx = if has_some_tables { Some(0) } else { None };
+
                 self.ui = TanicUiState::ViewingTablesList(ViewingTablesListState {
                     namespaces: namespaces.clone(),
-                    selected_idx: None,
+                    selected_idx,
                 });
             }
 
             (TanicAction::FocusPrevTable, prev_state) => {
-                let TanicAppState { iceberg, ui } = prev_state;
+                let TanicAppState { iceberg, ui, .. } = prev_state;
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
@@ -610,7 +653,7 @@ impl TanicAppState {
             }
 
             (TanicAction::FocusNextTable, prev_state) => {
-                let TanicAppState { iceberg, ui } = prev_state;
+                let TanicAppState { iceberg, ui, .. } = prev_state;
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
@@ -666,6 +709,24 @@ impl TanicAppState {
                     _ => {}
                 }
             }
+
+            (TanicAction::SelectTable, prev_state) => {
+                let TanicAppState { iceberg, ui, .. } = prev_state;
+
+                let TanicIcebergState::Connected(ref iceberg_state) = iceberg else {
+                    panic!();
+                };
+
+                let TanicUiState::ViewingTablesList(ref mut viewing_tables_list_state) = ui else {
+                    panic!();
+                };
+
+                // self.ui = TanicUiState::ViewingTable(ViewingTableState {
+                //     namespaces: namespaces.clone(),
+                //     selected_idx,
+                // });
+            }
+
             // TODO:
 
             // * SelectTable

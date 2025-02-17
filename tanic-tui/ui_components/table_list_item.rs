@@ -1,4 +1,5 @@
 use crate::component::Component;
+use num_format::{SystemLocale, ToFormattedString};
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::{Block, Paragraph};
@@ -18,7 +19,7 @@ impl<'a> TableListItem<'a> {
 }
 
 impl Component for &TableListItem<'_> {
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+    fn render(&self, area: Rect, buf: &mut Buffer, locale: &SystemLocale) {
         let mut block = Block::new().border_set(border::THICK);
         let block_inner = block.inner(area);
 
@@ -31,7 +32,7 @@ impl Component for &TableListItem<'_> {
         let row_count_str = match self.table.row_count() {
             None => "".to_string(),
             Some(1) => " (1 row)".to_string(),
-            Some(n) => format!(" ({n} rows)"),
+            Some(n) => format!(" ({} rows)", n.to_formatted_string(locale)),
         };
 
         let name = format!("{} {}{}", NERD_FONT_ICON_TABLE, name, row_count_str);

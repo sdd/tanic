@@ -1,4 +1,5 @@
 use crate::component::Component;
+use num_format::{SystemLocale, ToFormattedString};
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::{Block, Paragraph};
@@ -18,7 +19,7 @@ impl<'a> NamespaceListItem<'a> {
 }
 
 impl Component for &NamespaceListItem<'_> {
-    fn render(&self, area: Rect, buf: &mut Buffer) {
+    fn render(&self, area: Rect, buf: &mut Buffer, locale: &SystemLocale) {
         let mut block = Block::new().border_set(border::THICK);
         let block_inner = block.inner(area);
 
@@ -38,9 +39,9 @@ impl Component for &NamespaceListItem<'_> {
             "{} {} ({} table{}, {} row{})",
             NERD_FONT_ICON_TABLE_FOLDER,
             name,
-            table_count,
+            table_count.to_formatted_string(locale),
             plural_suffix,
-            row_count,
+            row_count.to_formatted_string(locale),
             row_plural_suffix
         );
 

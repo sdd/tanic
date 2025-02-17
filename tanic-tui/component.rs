@@ -1,3 +1,4 @@
+use num_format::SystemLocale;
 use ratatui::crossterm::event::{KeyEvent, MouseEvent};
 use ratatui::prelude::*;
 
@@ -13,5 +14,5 @@ pub trait Component {
         None
     }
 
-    fn render(&self, area: Rect, buf: &mut Buffer);
+    fn render(&self, area: Rect, buf: &mut Buffer, locale: &SystemLocale);
 }

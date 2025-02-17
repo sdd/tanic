@@ -68,8 +68,7 @@ impl AppContainer {
 
 impl Widget for &AppContainer {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let [top, bottom] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Max(20)]).areas(area);
+        let [top, bottom] = Layout::vertical([Constraint::Fill(1), Constraint::Max(6)]).areas(area);
 
         let filter_state = TuiWidgetState::new()
             .set_default_display_level(LevelFilter::Info)
@@ -106,9 +105,11 @@ impl Widget for &AppContainer {
             match state.ui {
                 TanicUiState::SplashScreen => self.splash_screen.render(top, buf),
                 TanicUiState::ViewingNamespacesList(_) => {
-                    (&self.namespace_list_view).render(top, buf)
+                    (&self.namespace_list_view).render(top, buf, &state.locale)
                 }
-                TanicUiState::ViewingTablesList(_) => (&self.table_list_view).render(top, buf),
+                TanicUiState::ViewingTablesList(_) => {
+                    (&self.table_list_view).render(top, buf, &state.locale)
+                }
                 TanicUiState::Exiting => {} // _ => {}
             }
         }
