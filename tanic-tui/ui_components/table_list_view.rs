@@ -34,7 +34,9 @@ impl Component for &TableListView {
     }
 
     fn render(&self, area: Rect, buf: &mut Buffer) {
+        tracing::debug!("self.state.read");
         let state = self.state.read().unwrap();
+        tracing::debug!("self.state.read done");
 
         let TanicIcebergState::Connected(ref iceberg_state) = state.iceberg else {
             panic!();

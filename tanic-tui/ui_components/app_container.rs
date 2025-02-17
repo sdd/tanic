@@ -8,7 +8,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::{Color, Style, Widget};
 use ratatui::widgets::Block;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, TryLockError};
 use tanic_svc::state::TanicUiState;
 use tanic_svc::{TanicAction, TanicAppState};
 use tui_logger::{LevelFilter, TuiLoggerLevelOutput, TuiLoggerWidget, TuiWidgetState};
@@ -42,7 +42,16 @@ impl AppContainer {
             }
 
             key_event => {
-                let state = self.state.read().unwrap();
+                tracing::debug!("key_event self.state.read");
+                let state = match self.state.read() {
+                    Ok(state) => state,
+                    Err(err) => {
+                        tracing::error!(?err, %err, "poison ☠");
+                        panic!();
+                    }
+                };
+                tracing::debug!("key_event self.state.read done");
+
                 match state.ui {
                     TanicUiState::ViewingNamespacesList(_) => {
                         (&self.namespace_list_view).handle_key_event(key_event)
@@ -60,7 +69,7 @@ impl AppContainer {
 impl Widget for &AppContainer {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let [top, bottom] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Max(10)]).areas(area);
+            Layout::vertical([Constraint::Fill(1), Constraint::Max(20)]).areas(area);
 
         let filter_state = TuiWidgetState::new()
             .set_default_display_level(LevelFilter::Info)
@@ -78,12 +87,31 @@ impl Widget for &AppContainer {
             .state(&filter_state)
             .render(bottom, buf);
 
-        let state = self.state.read().unwrap();
-        match state.ui {
-            TanicUiState::SplashScreen => self.splash_screen.render(top, buf),
-            TanicUiState::ViewingNamespacesList(_) => (&self.namespace_list_view).render(top, buf),
-            TanicUiState::ViewingTablesList(_) => (&self.table_list_view).render(top, buf),
-            TanicUiState::Exiting => {} // _ => {}
+        {
+            tracing::debug!("render self.state.read");
+            let state = match self.state.try_read() {
+                Ok(state) => state,
+                Err(TryLockError::Poisoned(err)) => {
+                    tracing::error!(?err, %err, "poison ☠");
+                    panic!();
+                }
+                Err(TryLockError::WouldBlock) => {
+                    tracing::error!("WouldBlock");
+
+                    // just skip this render if we can't get a read lock
+                    return;
+                }
+            };
+
+            match state.ui {
+                TanicUiState::SplashScreen => self.splash_screen.render(top, buf),
+                TanicUiState::ViewingNamespacesList(_) => {
+                    (&self.namespace_list_view).render(top, buf)
+                }
+                TanicUiState::ViewingTablesList(_) => (&self.table_list_view).render(top, buf),
+                TanicUiState::Exiting => {} // _ => {}
+            }
         }
+        tracing::debug!("render self.state.read done");
     }
 }

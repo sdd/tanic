@@ -186,12 +186,14 @@ impl TanicAppState {
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
+                    tracing::error!("panic! not connected");
                     panic!();
                 };
 
                 let Some(namespacce_desc) =
                     retrieved_iceberg_metadata.namespaces.get_mut(&namespace)
                 else {
+                    tracing::error!("panic! namespace not found");
                     panic!();
                 };
 
@@ -203,12 +205,14 @@ impl TanicAppState {
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
+                    tracing::error!("panic! not connected");
                     panic!();
                 };
 
                 let Some(namespacce_desc) =
                     retrieved_iceberg_metadata.namespaces.get_mut(&namespace)
                 else {
+                    tracing::error!("panic! namepsace  not found");
                     panic!();
                 };
 
@@ -248,20 +252,24 @@ impl TanicAppState {
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
+                    tracing::error!("panic! not connected");
                     panic!();
                 };
 
                 let Some(namespacce_desc) =
                     retrieved_iceberg_metadata.namespaces.get_mut(&namespace)
                 else {
+                    tracing::error!("panic! ns not found");
                     panic!();
                 };
 
                 let Some(ref mut table_desc) = namespacce_desc.tables else {
+                    tracing::error!("panic! tables not found");
                     panic!();
                 };
 
                 let Some(table_desc) = table_desc.get_mut(&table_name) else {
+                    tracing::error!("panic! table desc not found");
                     panic!();
                 };
 
@@ -280,27 +288,36 @@ impl TanicAppState {
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
+                    tracing::error!("panic! not connected");
                     panic!();
                 };
 
-                let Some(namespacce_desc) =
+                let Some(namespace_desc) =
                     retrieved_iceberg_metadata.namespaces.get_mut(&namespace)
                 else {
+                    tracing::error!("panic! ns not found");
                     panic!();
                 };
 
-                let Some(ref mut table_desc) = namespacce_desc.tables else {
+                let Some(ref mut table_desc) = namespace_desc.tables else {
+                    tracing::error!("panic! tables not found");
                     panic!();
                 };
 
                 let Some(table_desc) = table_desc.get_mut(&table_name) else {
+                    tracing::error!("panic! table desc not found");
                     panic!();
                 };
 
                 if let Some(row_count_str) = table_summary.get(TABLE_SUMMARY_KEY_ROW_COUNT) {
                     if let Ok(row_count) = row_count_str.trim().parse::<u64>() {
                         table_desc.row_count = Some(row_count);
-                        namespacce_desc.row_count = namespacce_desc
+                        tracing::info!(
+                            table_row_count = row_count,
+                            orig_ns_rows = namespace_desc.row_count,
+                            "Bumping NS row count"
+                        );
+                        namespace_desc.row_count = namespace_desc
                             .row_count
                             .map(|rc| rc + row_count)
                             .or(Some(row_count));
@@ -322,20 +339,24 @@ impl TanicAppState {
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
+                    tracing::error!("panic! not connected");
                     panic!();
                 };
 
                 let Some(namespacce_desc) =
                     retrieved_iceberg_metadata.namespaces.get_mut(&namespace)
                 else {
+                    tracing::error!("panic! ns not found");
                     panic!();
                 };
 
                 let Some(ref mut table_desc) = namespacce_desc.tables else {
+                    tracing::error!("panic! tble desc not found");
                     panic!();
                 };
 
                 let Some(table_desc) = table_desc.get_mut(&table_name) else {
+                    tracing::error!("panic! table not found");
                     panic!();
                 };
 
@@ -354,20 +375,24 @@ impl TanicAppState {
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
+                    tracing::error!("panic! not connected");
                     panic!();
                 };
 
                 let Some(namespacce_desc) =
                     retrieved_iceberg_metadata.namespaces.get_mut(&namespace)
                 else {
+                    tracing::error!("panic!ns not found");
                     panic!();
                 };
 
                 let Some(ref mut table_desc) = namespacce_desc.tables else {
+                    tracing::error!("panic! tables not found");
                     panic!();
                 };
 
                 let Some(table_desc) = table_desc.get_mut(&table_name) else {
+                    tracing::error!("panic! table not found");
                     panic!();
                 };
 
@@ -387,6 +412,7 @@ impl TanicAppState {
 
                 let TanicIcebergState::Connected(ref mut retrieved_iceberg_metadata) = iceberg
                 else {
+                    tracing::error!("panic! not connected");
                     panic!();
                 };
 

@@ -2,7 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::prelude::*;
 use ratatui::symbols::border;
 use ratatui::widgets::Block;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, TryLockError};
 
 use crate::component::Component;
 use crate::ui_components::namespace_list_item::NamespaceListItem;
@@ -36,30 +36,45 @@ impl Component for &NamespaceListView {
             .border_set(border::PLAIN);
         let block_inner_area = block.inner(area);
 
-        let state = self.state.read().unwrap();
-        let items = self.get_items(&state);
+        {
+            tracing::debug!("render self.state.read");
+            let state = match self.state.try_read() {
+                Ok(state) => state,
+                Err(TryLockError::Poisoned(err)) => {
+                    tracing::error!(?err, %err, "poison ☠");
+                    panic!();
+                }
+                Err(TryLockError::WouldBlock) => {
+                    tracing::error!("WouldBlock");
 
-        let children: Vec<(&NamespaceListItem, usize)> = items
-            .iter()
-            .map(|item| {
-                let tables = &item.ns.tables;
-                let table_count = tables.as_ref().map(|t| t.len()).unwrap_or(0);
+                    // just skip this render if we can't get a read lock
+                    return;
+                }
+            };
 
-                (item, table_count)
-            })
-            .collect::<Vec<_>>();
+            let items = self.get_items(&state);
 
-        let layout = TreeMapLayout::new(children);
+            let children: Vec<(&NamespaceListItem, usize)> = items
+                .iter()
+                .map(|item| {
+                    let tables = &item.ns.tables;
+                    let table_count = tables.as_ref().map(|t| t.len()).unwrap_or(0);
 
-        block.render(area, buf);
-        (&layout).render(block_inner_area, buf);
+                    (item, table_count)
+                })
+                .collect::<Vec<_>>();
+
+            let layout = TreeMapLayout::new(children);
+
+            block.render(area, buf);
+            (&layout).render(block_inner_area, buf);
+        }
+        tracing::debug!("render self.state.read done");
     }
 }
 
 impl NamespaceListView {
     fn get_items<'a>(&self, state: &'a TanicAppState) -> Vec<NamespaceListItem<'a>> {
-        // let state = self.state.read().unwrap();
-
         let TanicIcebergState::Connected(ref iceberg_state) = state.iceberg else {
             return vec![];
         };

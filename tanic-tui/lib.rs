@@ -33,6 +33,7 @@ impl TanicTui {
         let mut state_stream = WatchStream::new(state_rx);
 
         let Some(_) = state_stream.next().await else {
+            tracing::debug!("state_stream.next().await done");
             return Ok(());
         };
 
@@ -40,7 +41,9 @@ impl TanicTui {
 
         loop {
             {
+                tracing::debug!("state.read");
                 let state = state.read().unwrap();
+                tracing::debug!("state.read done");
                 if matches!(state.ui, TanicUiState::Exiting) {
                     break;
                 }

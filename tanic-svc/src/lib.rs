@@ -53,15 +53,19 @@ impl AppStateManager {
         } = self;
 
         while !matches!(state.read().unwrap().iceberg, TanicIcebergState::Exiting) {
+            tracing::debug!("await action_rx.recv()");
             let Some(action) = action_rx.recv().await else {
                 break;
             };
+            tracing::debug!("await action_rx.recv() complete");
             tracing::info!(?action, "AppState received an action");
 
             {
+                tracing::debug!("state.write()");
                 let mut mut_state = state.write().unwrap();
                 *mut_state = mut_state.clone().update(action);
             }
+            tracing::debug!("state.write() done");
 
             state_tx
                 .send(())

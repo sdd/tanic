@@ -46,14 +46,15 @@ async fn main() -> Result<()> {
             _ = iceberg_task => Ok(()),
         }
     } else {
-        let ui_task = tokio::spawn({
-            let tanic_tui = TanicTui::new(action_tx.clone());
-            let state_rx = state_rx.clone();
-            async move { tanic_tui.event_loop(state_rx, ui_app_state).await }
+        tokio::task::spawn_blocking(move || {
+            tokio::spawn(async move {
+                let tanic_tui = TanicTui::new(action_tx.clone());
+                let state_rx = state_rx.clone();
+                tanic_tui.event_loop(state_rx, ui_app_state).await
+            })
         });
 
         tokio::select! {
-            _ = ui_task => Ok(()),
             _ = svc_task => Ok(()),
             _ = iceberg_task => Ok(()),
         }

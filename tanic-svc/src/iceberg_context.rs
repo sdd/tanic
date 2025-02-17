@@ -71,11 +71,18 @@ impl IcebergContextManager {
             let action_tx = self.action_tx.clone();
             let job_queue_tx = job_queue_tx.clone();
             let iceberg_ctx = self.iceberg_context.clone();
-            async move { Self::job_handler(job_queue_rx, job_queue_tx, action_tx, iceberg_ctx).await }
+            async move {
+                tracing::debug!("await job_handler()");
+                Self::job_handler(job_queue_rx, job_queue_tx, action_tx, iceberg_ctx).await
+            }
         });
 
-        while state_stream.next().await.is_some() {
+        tracing::debug!("await state_stream.next()");
+        let mut next_item = state_stream.next().await;
+        tracing::debug!("await state_stream.next() complete");
+        while next_item.is_some() {
             let new_conn_details = {
+                tracing::debug!("self.state_ref.read()");
                 let state = self.state_ref.read().unwrap();
 
                 match &state.iceberg {
@@ -88,14 +95,23 @@ impl IcebergContextManager {
                     _ => None,
                 }
             };
+            tracing::debug!("self.state_ref.read() done");
 
             if let Some(new_conn_details) = new_conn_details {
+                tracing::debug!("await self.connect_to()");
                 self.connect_to(&new_conn_details, job_queue_tx.clone())
                     .await?;
+                tracing::debug!("await self.connect_to() done");
 
                 // begin crawl
+                tracing::debug!("await job_queue_tx.send()");
                 let _ = job_queue_tx.send(IcebergTask::Namespaces).await;
+                tracing::debug!("await job_queue_tx.send() done");
             }
+
+            tracing::debug!("await state_stream.next()");
+            next_item = state_stream.next().await;
+            tracing::debug!("await state_stream.next() complete");
         }
 
         Ok(())
@@ -107,6 +123,7 @@ impl IcebergContextManager {
         _job_queue_tx: MpscSender<IcebergTask>,
     ) -> Result<()> {
         {
+            tracing::debug!("self.iceberg_context.read()");
             let ctx = self.iceberg_context.read().unwrap();
             if let Some(ref existing_conn_details) = ctx.connection_details {
                 if new_conn_details == existing_conn_details {
@@ -115,11 +132,14 @@ impl IcebergContextManager {
                 }
             }
         }
+        tracing::debug!("self.iceberg_context.read() done");
 
         {
+            tracing::debug!("self.iceberg_context.write()");
             let mut ctx = self.iceberg_context.write().unwrap();
             ctx.connect_to(new_conn_details);
         }
+        tracing::debug!("self.iceberg_context.write() done");
 
         Ok(())
     }
@@ -131,6 +151,7 @@ impl IcebergContextManager {
     ) -> Result<()> {
         let root_namespaces = {
             let catalog = {
+                tracing::debug!("ctx.read()");
                 let r_ctx = ctx.read().unwrap();
 
                 let Some(ref catalog) = r_ctx.catalog else {
@@ -141,8 +162,13 @@ impl IcebergContextManager {
 
                 catalog.clone()
             };
+            tracing::debug!("ctx.read() done");
 
-            catalog.list_namespaces(None).await?
+            tracing::debug!("catalog.list_namespaces(None).await");
+            let res = catalog.list_namespaces(None).await?;
+            tracing::debug!("catalog.list_namespaces(None).await done");
+
+            res
         };
 
         let namespaces = root_namespaces
@@ -152,8 +178,10 @@ impl IcebergContextManager {
 
         {
             let namespaces = namespaces.clone();
+            tracing::debug!("ctx.write()");
             ctx.write().unwrap().namespaces = namespaces;
         }
+        tracing::debug!("ctx.write() done");
 
         action_tx
             .send(TanicAction::UpdateNamespacesList(
@@ -165,9 +193,11 @@ impl IcebergContextManager {
             .map_err(|err| TanicError::UnexpectedError(err.to_string()))?;
 
         for namespace in namespaces {
+            tracing::debug!("job_queue_tx.send await");
             let _ = job_queue_tx
                 .send(IcebergTask::TablesForNamespace(namespace.clone()))
                 .await;
+            tracing::debug!("job_queue_tx.send await sone");
         }
 
         Ok(())
@@ -182,6 +212,7 @@ impl IcebergContextManager {
         let namespace_ident = NamespaceIdent::from_strs(namespace.parts.clone())?;
         let tables = {
             let catalog = {
+                tracing::debug!("ctx.read()");
                 let r_ctx = ctx.read().unwrap();
 
                 let Some(ref catalog) = r_ctx.catalog else {
@@ -192,8 +223,13 @@ impl IcebergContextManager {
 
                 catalog.clone()
             };
+            tracing::debug!("ctx.read() done");
 
-            catalog.list_tables(&namespace_ident).await?
+            tracing::debug!("catalog.list_tables(&namespace_ident).await");
+            let res = catalog.list_tables(&namespace_ident).await?;
+            tracing::debug!("catalog.list_tables(&namespace_ident).await done");
+
+            res
         };
 
         let tables = tables
@@ -207,8 +243,10 @@ impl IcebergContextManager {
 
         {
             let tables = tables.clone();
+            tracing::debug!("ctx.write()");
             ctx.write().unwrap().tables = tables;
         }
+        tracing::debug!("ctx.write() done");
 
         action_tx
             .send(TanicAction::UpdateNamespaceTableList(
@@ -218,9 +256,12 @@ impl IcebergContextManager {
             .map_err(TanicError::unexpected)?;
 
         for table in tables {
+            tracing::debug!("job_queue_tx.send await");
+            tracing::info!(?table, "sending SummaryForTable");
             let _ = job_queue_tx
                 .send(IcebergTask::SummaryForTable(table.clone()))
                 .await;
+            tracing::debug!("job_queue_tx.send await done");
         }
 
         Ok(())
@@ -237,6 +278,7 @@ impl IcebergContextManager {
 
         let loaded_table = {
             let catalog = {
+                tracing::debug!("ctx.read()");
                 let r_ctx = ctx.read().unwrap();
 
                 let Some(ref catalog) = r_ctx.catalog else {
@@ -247,8 +289,13 @@ impl IcebergContextManager {
 
                 catalog.clone()
             };
+            tracing::debug!("ctx.read() done");
 
-            catalog.load_table(&table_ident).await?
+            tracing::debug!("catalog.load_table(&table_ident).await");
+            let res = catalog.load_table(&table_ident).await?;
+            tracing::debug!("catalog.load_table(&table_ident).await done");
+
+            res
         };
 
         let summary = loaded_table
@@ -256,7 +303,7 @@ impl IcebergContextManager {
             .current_snapshot()
             .unwrap()
             .summary();
-        tracing::info!(?summary);
+        // tracing::info!(?summary);
 
         action_tx
             .send(TanicAction::UpdateTableSummary {
@@ -295,7 +342,6 @@ impl IcebergContextManager {
     ) {
         let job_stream = ReceiverStream::new(job_queue_rx);
 
-        // let _ = tokio::spawn(async move {
         job_stream
             .map(|task| {
                 (
@@ -310,15 +356,18 @@ impl IcebergContextManager {
                 async move |(task, iceberg_ctx, action_tx, job_queue_tx)| {
                     match task {
                         IcebergTask::Namespaces => {
+                            tracing::debug!("populate_namespaces.await");
                             let _ = IcebergContextManager::populate_namespaces(
                                 iceberg_ctx,
                                 action_tx,
                                 job_queue_tx,
                             )
                             .await;
+                            tracing::debug!("populate_namespaces.await done");
                         }
 
                         IcebergTask::TablesForNamespace(namespace) => {
+                            tracing::debug!("populate_tables.await");
                             let _ = IcebergContextManager::populate_tables(
                                 iceberg_ctx,
                                 action_tx,
@@ -326,9 +375,11 @@ impl IcebergContextManager {
                                 job_queue_tx,
                             )
                             .await;
+                            tracing::debug!("populate_tables.await done");
                         }
 
                         IcebergTask::SummaryForTable(table) => {
+                            tracing::debug!("populate_table_summary.await");
                             let _ = IcebergContextManager::populate_table_summary(
                                 iceberg_ctx,
                                 action_tx,
@@ -336,6 +387,7 @@ impl IcebergContextManager {
                                 job_queue_tx,
                             )
                             .await;
+                            tracing::debug!("populate_table_summary.await done");
                         } // _ => {}
                     }
                 },
